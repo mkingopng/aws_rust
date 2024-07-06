@@ -28,7 +28,7 @@ Cargo.lock
 # You can ignore debug or release builds with the following
 # /target/debug/
 /target/release/
-
 /target
 /Cargo.lock
 /.env
+.idea

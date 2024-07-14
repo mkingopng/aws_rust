@@ -84,9 +84,5 @@ aws lambda update-function-code --function-name rust-lambda --zip-file fileb://l
 ### 9. invoke the lambda function
 ```bash
 aws lambda invoke --function-name rust-lambda output.json
-```
-
-check the response
-```bash
 cat output.json
 ```

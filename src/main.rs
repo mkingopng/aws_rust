@@ -1,73 +1,93 @@
-// import requirements (crates and modules)
-use lambda_runtime::{handler_fn, Context, Error};  // AWS Lambda runtime for handling Lambda functions
-use serde_json::json;  // Serde for JSON serialization/deserialization
-use aws_sdk_s3::Client as S3Client;  // AWS SDK client for S3
-use aws_sdk_dynamodb::Client as DynamoDbClient;  // AWS SDK client for DynamoDB
-use aws_sdk_dynamodb::types::AttributeValue; // AWS SDK types for DynamoDB attribute values
-use std::env;  // for accessing environment variables
-use uuid::Uuid;  // to generate UUIDs
-use log::{info, error};  // For logging
-use simple_logger::SimpleLogger;  // For simple logging setup
+use lambda_runtime::{handler_fn, Context, Error};
+use serde_json::json;
+use aws_sdk_s3::Client as S3Client;
+use aws_sdk_dynamodb::Client as DynamoDbClient;
+use aws_sdk_dynamodb::types::AttributeValue;
+use std::env;
+use uuid::Uuid;
+use log::{info, error};
+use simple_logger::SimpleLogger;
+use serde::{Deserialize, Serialize};
 
-#[tokio::main]  // the main function is the entry point of the Lambda function
-async fn main() -> Result<(), Error> {  // main function returns a Result or an Error
-    // Initialize the logger
-    SimpleLogger::new().init().unwrap();
-
-    let func = handler_fn(my_handler);  // create handler function
-    lambda_runtime::run(func).await?;  // run Lambda runtime with handler function
-    Ok(())  // return Ok if successful, else return Error
+#[derive(Deserialize)]
+struct LambdaEvent {
+    #[serde(rename = "resource")]
+    resource: Option<String>,
 }
 
-// the handler function that is executed when the Lambda function is invoked
-async fn my_handler(_: serde_json::Value, _: Context) -> Result<serde_json::Value, Error> {
-    // read env vars for S3 bucket name and DynamoDB table name
-    let s3_bucket_name = match env::var("S3_BUCKET_NAME") {
-        Ok(val) => val,
-        Err(e) => {
-            error!("S3_BUCKET_NAME not set: {}", e);
-            return Err(e.into());
-        }
-    };
+#[derive(Serialize)]
+struct Response {
+    statusCode: i32,
+    body: String,
+}
 
-    let dynamo_table_name = match env::var("DYNAMODB_TABLE") {
-        Ok(val) => val,
-        Err(e) => {
-            error!("DYNAMODB_TABLE not set: {}", e);
-            return Err(e.into());
-        }
-    };
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    SimpleLogger::new().init().unwrap();
+    let func = handler_fn(my_handler);
+    lambda_runtime::run(func).await?;
+    Ok(())
+}
 
-    let config = aws_config::load_from_env().await;  // load AWS config from env
-    let s3_client = S3Client::new(&config);  // create S3 and DynamoDB clients using the loaded config
+async fn my_handler(event: LambdaEvent, _: Context) -> Result<Response, Error> {
+    match event.resource.as_deref() {
+        Some("/") => process_request().await,
+        Some("/health") => Ok(health_check().await),
+        _ => process_request().await,  // Default to process_request for testing purposes
+    }
+}
+
+async fn process_request() -> Result<Response, Error> {
+    let s3_bucket_name = env::var("S3_BUCKET_NAME").unwrap_or_else(|_| "".to_string());
+    let dynamo_table_name = env::var("DYNAMODB_TABLE").unwrap_or_else(|_| "".to_string());
+
+    if s3_bucket_name.is_empty() || dynamo_table_name.is_empty() {
+        error!("Environment variables S3_BUCKET_NAME and DYNAMODB_TABLE must be set");
+        return Ok(Response {
+            statusCode: 500,
+            body: json!({"error": "Missing environment variables"}).to_string(),
+        });
+    }
+
+    let config = aws_config::load_from_env().await;
+    let s3_client = S3Client::new(&config);
     let dynamo_client = DynamoDbClient::new(&config);
 
-    let guid = Uuid::new_v4().to_string();  // generate new UUID
-    let file_name = format!("{}.txt", guid); // create file name using UUID
-    let encoded_string = guid.clone().into_bytes();  // encode UUID as bytes
+    let guid = Uuid::new_v4().to_string();
+    let file_name = format!("{}.txt", guid);
+    let encoded_string = guid.clone().into_bytes();
 
-    // put the encoded UUID into the S3 bucket
     match s3_client.put_object().bucket(&s3_bucket_name).key(&file_name).body(encoded_string.into()).send().await {
         Ok(_) => info!("Successfully put object in S3"),
         Err(e) => {
             error!("Failed to put object in S3: {}", e);
-            return Err(e.into());
+            return Ok(Response {
+                statusCode: 500,
+                body: json!({"error": "Failed to put object in S3"}).to_string(),
+            });
         }
     };
 
-    // put the UUID into the DynamoDB table
-    match dynamo_client.put_item()
-        .table_name(&dynamo_table_name)  // specify the table name
-        .item("id", AttributeValue::S(guid.clone()))  // specify the item to be inserted
-        .send()  // send the request
-        .await {
+    match dynamo_client.put_item().table_name(&dynamo_table_name).item("id", AttributeValue::S(guid.clone())).send().await {
         Ok(_) => info!("Successfully put item in DynamoDB"),
         Err(e) => {
             error!("Failed to put item in DynamoDB: {}", e);
-            error!("DynamoDB Error: {:?}", e);
-            return Err(e.into());
+            return Ok(Response {
+                statusCode: 500,
+                body: json!({"error": "Failed to put item in DynamoDB"}).to_string(),
+            });
         }
     };
 
-    Ok(json!({"id": guid}))  // return a JSON response with the UUID
+    Ok(Response {
+        statusCode: 200,
+        body: json!({"id": guid}).to_string(),
+    })
+}
+
+async fn health_check() -> Response {
+    Response {
+        statusCode: 200,
+        body: json!({"status": "healthy"}).to_string(),
+    }
 }

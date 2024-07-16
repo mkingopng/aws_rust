@@ -9,7 +9,6 @@ export let options = {
     ],
 };
 
-// Replace this with your actual API Gateway endpoint
 const url = 'https://3si1yzcmgj.execute-api.ap-southeast-2.amazonaws.com/rusty_dev/rust-resource';
 
 export default function () {

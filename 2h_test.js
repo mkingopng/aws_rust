@@ -3,15 +3,15 @@ import { sleep, check } from 'k6';
 
 export let options = {
     stages: [
-        { duration: '10m', target: 100 },  // ramp-up to 100 users over 10 minutes
-        { duration: '20m', target: 100 },  // stay at 100 users for 20 minutes
-        { duration: '10m', target: 50 },   // ramp-down to 50 users over 10 minutes
-        { duration: '20m', target: 50 },   // stay at 50 users for 20 minutes
-        { duration: '10m', target: 200 },  // ramp-up to 200 users over 10 minutes
-        { duration: '20m', target: 200 },  // stay at 200 users for 20 minutes
-        { duration: '10m', target: 0 },    // ramp-down to 0 users over 10 minutes
-        { duration: '10m', target: 500 },  // ramp-up to 500 users over 10 minutes
-        { duration: '10m', target: 500 },  // stay at 500 users for 10 minutes
+        { duration: '5m', target: 10 },  // ramp-up to 10 users over 5 minutes
+        { duration: '10m', target: 10 },  // stay at 10 users for 10 minutes
+        { duration: '5m', target: 5 },   // ramp-down to 5 users over 5 minutes
+        { duration: '10m', target: 5 },   // stay at 5 users for 10 minutes
+        { duration: '5m', target: 10 },  // ramp-up to 10 users over 5 minutes
+        { duration: '10m', target: 10 },  // stay at 10 users for 10 minutes
+        { duration: '5m', target: 0 },    // ramp-down to 0 users over 5 minutes
+        { duration: '5m', target: 10 },  // ramp-up to 10 users over 5 minutes
+        { duration: '10m', target: 10 },  // stay at 10 users for 10 minutes
     ],
 };
 

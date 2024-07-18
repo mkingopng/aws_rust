@@ -114,7 +114,7 @@ aws lambda update-function-code --function-name your-function-name --zip-file fi
 Use k6 to run performance tests and gather data.
 
 ```bash
-k6 run --out json=2h-output.json 2h_test.js
+k6 run --out json=1h-output.json 2h_test.js
 ```
 
 ## Findings
